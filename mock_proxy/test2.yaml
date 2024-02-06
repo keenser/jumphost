@@ -1,0 +1,10 @@
+---
+listen:
+- port: 8543
+  ssl:
+    certfile: "/etc/ssl/certs/ssl-cert-snakeoil.pem"
+    keyfile: "/etc/ssl/private/ssl-cert-snakeoil.key"
+routes:
+- method: "*"
+  path: "*"
+  handler: forward("https://localhost:18543{path_qs}", stream=True)

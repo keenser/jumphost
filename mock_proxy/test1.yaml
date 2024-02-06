@@ -1,0 +1,54 @@
+---
+- listen:
+  - port: 8000
+  - port: 8543
+    ssl:
+    - certfile: ssl-cert-snakeoil.pem
+      keyfile: ssl-cert-snakeoil.key
+    - certfile: "/etc/ssl/certs/ssl-cert-snakeoil.pem"
+      keyfile: "/etc/ssl/private/ssl-cert-snakeoil.key"
+  routes:
+  - method: GET
+    path: "/ws"
+    handler: ws
+  - method: GET
+    path: "/tapi/data/context/notification-context/notif-subscription/sse/{uuid}"
+    handler: sse
+  - method: POST
+    path: "/sse/send"
+    handler: ssesend
+  - method: POST
+    path: "/ws/send"
+    handler: wssend
+  - method: POST
+    path: "/send"
+    handler: send
+  - path: /rest/plat/smapp/v1/sessions
+    method: PUT
+    handler:
+      body:
+        accessSession: "by9d"
+        roaRand: "c328"
+        expires: 1800
+        additionalInfo: null
+  - path: /restconf/v1/operations/action:establish-subscription
+    method: POST
+    handler:
+      body:
+        output:
+          url: /ws
+  - path: /restconf/streams/yang-push-json
+    method: GET
+    handler: sse
+  - method: "*"
+    path: "*"
+    handler: forward("http://localhost:18543{path_qs}")
+#- listen:
+#  - port: 443
+#    ssl:
+#      certfile: "/imposters/test.pem"
+#      keyfile: "/imposters/test.key"
+#  routes:
+#  - path: "*"
+#    method: "*"
+#    handler: forward("https://localhost:1443{path_qs}")

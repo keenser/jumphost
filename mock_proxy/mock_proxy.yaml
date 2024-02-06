@@ -1,0 +1,23 @@
+---
+listen:
+- port: 8180
+- port: 8443
+  ssl:
+    certfile: "/etc/ssl/certs/ssl-cert-snakeoil.pem"
+    keyfile: "/etc/ssl/private/ssl-cert-snakeoil.key"
+routes:
+- method: GET
+  path: "/ws"
+  handler: ws
+- method: GET
+  path: "/sse"
+  handler: sse
+- method: POST
+  path: "/send"
+  handler: send
+- method: CONNECT
+  path: "*"
+  handler: connect("localhost", 8443)
+- method: "*"
+  path: "*"
+  handler: proxy

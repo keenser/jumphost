@@ -1,0 +1,16 @@
+[Unit]
+Description=jumphost service
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+User=root
+Group=root
+EnvironmentFile=-/etc/default/jumphost
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/local/bin/jumphost -f $DAEMON_ARGS
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target

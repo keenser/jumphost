@@ -1,0 +1,26 @@
+---
+listen:
+- port: 8773
+  ssl:
+  - certfile: /etc/pki/tls/certs/ssl-cert-snakeoil.pem
+    keyfile: /etc/pki/tls/private/ssl-cert-snakeoil.key
+  - certfile: /etc/ssl/certs/ssl-cert-snakeoil.pem
+    keyfile: /etc/ssl/private/ssl-cert-snakeoil.key
+routes:
+- path: /v2/{id}/os-availability-zone/detail
+  method: "*"
+  handler: sleep
+- path: /v2/{id}/servers
+  method: POST
+  handler:
+  - case: body['server']['availability_zone'] == 'AZ#2222'
+    then:
+      status: 300
+  - case: body['server']['availability_zone'] == 'AZ#9999'
+    then: forward("https://cn.corp:8774{path_qs}")
+  - then:
+      status: 400
+      body: HTTP 400
+- path: "*"
+  method: "*"
+  handler: forward("https://cn.corp:8774{path_qs}")
