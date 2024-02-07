@@ -7,11 +7,13 @@
 # --mount type=bind,source="$(pwd)"/local.yaml,target=/opt/local.yaml,readonly \
 # --hostname jumphost jumphost
 #
-FROM python:3-slim
-RUN pip3 install --upgrade pip
-RUN pip3 install cryptography PyYAML asyncssh aiosocks uvloop lockfile python-daemon pykeepass
+FROM python:3.11-alpine3.18
+#RUN pip3 install cryptography PyYAML asyncssh aiosocks uvloop lockfile python-daemon pykeepass
+COPY pyproject.toml /opt/
+COPY jumphost /opt/jumphost/
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir --upgrade /opt
 WORKDIR /opt
-COPY jumphost.py proxy.py spawn.py /opt/
 EXPOSE 8118
 #CMD ["./jumphost.py", "--forti", "-vvf"]
-CMD ["./jumphost.py", "-vvf"]
+CMD ["jumphost", "-vvf"]

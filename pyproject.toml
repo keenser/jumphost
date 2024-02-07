@@ -1,0 +1,24 @@
+[project]
+name = "jumphost"
+version = "4.1"
+description = ""
+authors = [
+   {"name" = "Keenser", "email" = "keenser.sg@gmain.com"}
+]
+
+requires-python = ">= 3.11"
+dependencies = [
+    "pyyaml",
+    "pykeepass",
+    "uvloop",
+    "python_daemon",
+    "setproctitle",
+    "asyncssh",
+    "aiosocks"
+]
+
+[tool.setuptools.packages.find]
+include = ["jumphost"]
+
+[project.scripts]
+jumphost = "jumphost:daemonize"

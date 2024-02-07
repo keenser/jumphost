@@ -18,7 +18,7 @@ import signal
 import argparse
 from typing import Any, Optional, Sequence, Dict, cast
 import yaml
-import proxy
+from . import proxy
 import pykeepass
 import pykeepass.group
 if sys.platform == 'linux':
