@@ -642,6 +642,21 @@ def status(body=None, local=None, **handler):
     return _status
 
 @Handlers.callable()
+def load(file, **kwargs):
+    """
+    return file contents
+    Sample usage:
+    - method: GET
+      path: /bigfile
+      handler: load('bigfile.txt')
+    """
+    with open(file, encoding='utf-8') as fp:
+        contents = fp.read()
+    async def _load(request:web.Request):
+        return web.Response(text=contents, **kwargs)
+    return _load
+
+@Handlers.callable()
 def connect(host:str, port:int) -> typedefs.Handler:
     """
     http connect
@@ -853,11 +868,6 @@ def main():
                 'method': 'GET',
                 'path': '/ws',
                 'handler': 'ws',
-            },
-            {
-                'method': 'GET',
-                'path': '/sse',
-                'handler': 'sse',
             },
             {
                 'method': 'POST',
