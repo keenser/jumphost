@@ -134,7 +134,7 @@ class DefaultResource(web_urldispatcher.Resource):
     def canonical(self) -> str:
         return "*"
 
-    def get_info(self):
+    def get_info(self) -> web_urldispatcher._InfoDict:
         return {"path": "*"}
 
     def raw_match(self, path: str) -> bool:
@@ -254,11 +254,9 @@ class Handlers:
                 return None
             if isinstance(node, ast.Expression):
                 return _eval(node.body)
-            if isinstance(node, ast.Str):
-                return YamlEnv(node.s) if YamlEnv.pattern.match(node.s) else node.s
-            if isinstance(node, ast.Num):
-                return node.n
             if isinstance(node, ast.Constant):
+                if isinstance(node.value, str):
+                    return YamlEnv(node.value) if YamlEnv.pattern.match(node.value) else node.value
                 return node.value
             if isinstance(node, ast.Subscript):
                 if isinstance(node.ctx, ast.Load):
@@ -332,7 +330,7 @@ class Handlers:
         if isinstance(body, aiohttp.payload.Payload):
             body = body._value
 
-        if body is not None:
+        if body is not None and isinstance(body, (bytearray, bytes)):
             if logging.getLogger().level >= logging.DEBUG and len(body) > omit:
                 body = body[:omit] + b'<omited by loglevel>'
 
@@ -388,6 +386,7 @@ class Handlers:
         """ prepare data for render tamplates from http request """
         return dict(
                 qs=('?' + request.query_string) if request.query_string else '',
+                query=request.query,
                 url=request.url,
                 path=request.raw_path,
                 path_qs=request.path_qs,
@@ -585,8 +584,8 @@ if SSE:
         SSE server endpoint
         """
         peer = ProxyChain.get(request.transport)
-        async with sse_response(request) as response:
-            response: EventSourceResponse = response
+        async with sse_response(request) as response: # type: ignore
+            response: EventSourceResponse = response # type: ignore
             Handlers.log_tail(response, peer, 'sse')
 
             response.ping_interval = 3600
@@ -731,7 +730,7 @@ def forward(url:Union[str,YamlEnv], logname:Optional[str]='forward', stream=Fals
                 str(Handlers.compile_str(url, request)),
                 headers=request.headers,
                 data=await request.read(),
-                verify_ssl=False,
+                ssl=False,
                 allow_redirects=False,
             ) as client_resp:
                 logging.debug('%s P->S: %s %s %s %s\nheaders:\n  %s',
@@ -932,7 +931,7 @@ def main():
 
         app.on_startup.append(create_queue)
         app.on_shutdown.append(close_queue)
-        runner = web.AppRunner(app, access_log=None)
+        runner = web.AppRunner(app, access_log=None, handler_cancellation=True)
         loop.run_until_complete(runner.setup())
         runners.append(runner)
 
