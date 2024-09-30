@@ -2,6 +2,7 @@
 # vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4
 # pylint: disable=protected-access, consider-using-f-string
 
+from functools import reduce
 import logging
 import asyncio
 import ssl
@@ -29,6 +30,17 @@ except ModuleNotFoundError:
     SSE = False
 
 StringT = TypeVar('StringT', bound=Optional[str])
+
+def strtobool(val:Union[str,bool]):
+    if isinstance(val, bool):
+        return val
+    lval = val.lower()
+    if lval in ('y', 'yes', 't', 'true', 'on', '1'):
+        return True
+    elif lval in ('n', 'no', 'f', 'false', 'off', '0'):
+        return False
+    else:
+        return val
 
 class MultisubscriberQueue:
     """ MultisubscriberQueue """
@@ -234,13 +246,27 @@ class Handlers:
         ast.In: lambda a, b: a in b,
         ast.NotIn: lambda a, b: a not in b,
         ast.boolop: Exception,
-        ast.And: lambda a, b: a and b,
-        ast.Or: lambda a, b: a or b,
+        ast.And: all,
+        ast.Or: lambda x: reduce(lambda a,b: a or b, x, False),
         ast.unaryop: Exception,
         ast.Invert: lambda a: ~a,
         ast.Not: lambda a: not a,
         ast.UAdd: lambda a: +a,
         ast.USub: lambda a: -a,
+        ast.operator: Exception,
+        ast.Add: lambda a, b: a + b,
+        ast.BitAnd: lambda a, b: a & b,
+        ast.BitOr: lambda a, b: a | b,
+        ast.BitXor: lambda a, b: a ^ b,
+        ast.Div: lambda a, b: a / b,
+        ast.FloorDiv: lambda a, b: a // b,
+        ast.LShift: lambda a, b: a << b,
+        ast.Mod: lambda a, b: a % b,
+        ast.Mult: lambda a, b: a * b,
+        ast.MatMult: lambda a, b: a @ b,
+        ast.Pow: lambda a, b: a ** b,
+        ast.RShift: lambda a, b: a >> b,
+        ast.Sub: lambda a, b: a - b,
     }
     @classmethod
     def get(cls, handler:Union[str,list,dict], **local) -> Tuple[typedefs.Handler, Optional[str]]:
@@ -266,7 +292,7 @@ class Handlers:
                 raise SyntaxError(f"Unsupported Subscript ctx {node.ctx.__class__}")
             if isinstance(node, ast.Call):
                 args = [_eval(x) for x in node.args]
-                kwargs = {x.arg:_eval(x.value) for x in node.keywords}
+                kwargs = {x.arg:_eval(x.value) for x in node.keywords if x.arg}
                 return _eval(node.func)(*args, **kwargs)
             if isinstance(node, ast.Name):
                 if node.id in cls.staticmethods:
@@ -276,25 +302,34 @@ class Handlers:
                     return local[node.id]
                 raise SyntaxError(f"Unknown variable {node.id}")
             if isinstance(node, ast.Compare):
-                left = _eval(node.left)
+                left = strtobool(_eval(node.left))
                 for right in node.comparators:
-                    right = _eval(right)
+                    right = strtobool(_eval(right))
                     ops = node.ops.pop(0)
                     if Handlers._binOps[ops.__class__](left, right) is False:
                         return False
                     left = right
                 return True
             if isinstance(node, ast.BoolOp):
-                left = _eval(node.values[0])
-                right = _eval(node.values[1])
-                return Handlers._binOps[node.op.__class__](left, right)
+                values = [_eval(x) for x in node.values]
+                return Handlers._binOps[node.op.__class__](values)
             if isinstance(node, ast.UnaryOp):
                 return Handlers._binOps[node.op.__class__](_eval(node.operand))
+            if isinstance(node, ast.BinOp):
+                return Handlers._binOps[node.op.__class__](_eval(node.left), _eval(node.right))
             if isinstance(node, ast.FormattedValue):
                 return _eval(node.value)
             if isinstance(node, ast.JoinedStr):
                 return ''.join([str(_eval(x)) for x in node.values])
-
+            if isinstance(node, ast.List):
+                return [_eval(x) for x in node.elts]
+            if isinstance(node, ast.Dict):
+                return {_eval(k):_eval(v) for k,v in zip(node.keys, node.values)}
+            if isinstance(node, ast.Attribute):
+                value = _eval(node.value)
+                if hasattr(value, node.attr):
+                    return getattr(value, node.attr)
+                raise AttributeError(f"object has no attribute {node.attr}")
             raise SyntaxError(f"Bad syntax, {type(node)}")
 
         if isinstance(handler, (str, YamlEnv)):
