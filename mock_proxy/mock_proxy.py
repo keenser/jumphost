@@ -20,7 +20,7 @@ from collections import defaultdict
 import yarl
 import yaml
 import aiohttp
-from aiohttp import web, web_urldispatcher, typedefs
+from aiohttp import web, web_urldispatcher, typedefs, web_request, web_response
 from multidict import CIMultiDict
 try:
     from aiohttp_sse import sse_response, EventSourceResponse
@@ -172,6 +172,14 @@ class UrlDispatcher(web_urldispatcher.UrlDispatcher):
         """Shortcut for add_route with method CONNECT."""
         return self.add_route(aiohttp.hdrs.METH_CONNECT, path, handler, **kwargs)
 
+    async def resolve(self, request: web_request.Request) -> web_urldispatcher.UrlMappingMatchInfo:
+        ret = await super().resolve(request=request)
+        if isinstance(ret, web_urldispatcher.MatchInfoError):
+            for candidate in self._resource_index.get('*', ()):
+                match_dict, allowed = await candidate.resolve(request)
+                if match_dict is not None:
+                    return match_dict
+        return ret
 
 class CIDefaultMultiDict(CIMultiDict):
     """ multidict + defaultdict """
@@ -794,7 +802,9 @@ def forward(url:Union[str,YamlEnv], logname:Optional[str]='forward', stream=Fals
                     response.body = await client_resp.read()
                     if client_resp.headers.get(aiohttp.hdrs.TRANSFER_ENCODING) == 'chunked':
                         response.enable_chunked_encoding()
-
+                    if client_resp.headers.get(aiohttp.hdrs.CONTENT_ENCODING):
+                        encoding = web_response.CONTENT_CODINGS[client_resp.headers[aiohttp.hdrs.CONTENT_ENCODING]]
+                        response.enable_compression(force=encoding)
                 return response
 
     return _forward
